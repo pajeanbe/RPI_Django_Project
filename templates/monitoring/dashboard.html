@@ -1,0 +1,132 @@
+{% extends 'base/base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <h6 class="card-title">CPU Usage</h6>
+                <div class="metric-value text-primary">{{ metrics.cpu_percent|floatformat:1 }}%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <h6 class="card-title">Memory Usage</h6>
+                <div class="metric-value text-warning">{{ metrics.memory_percent|floatformat:1 }}%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <h6 class="card-title">Disk Usage</h6>
+                <div class="metric-value text-danger">{{ metrics.disk_percent|floatformat:1 }}%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="card-body">
+                <h6 class="card-title">Temperature</h6>
+                <div class="metric-value text-info">
+                    {% if metrics.temperature %}{{ metrics.temperature|floatformat:1 }}°C{% else %}N/A{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>System Metrics (Last Hour)</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="systemChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Top Processes</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Process</th>
+                                <th>CPU%</th>
+                                <th>Memory%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for process in processes %}
+                            <tr>
+                                <td>{{ process.name }}</td>
+                                <td>{{ process.cpu_percent|floatformat:1 }}%</td>
+                                <td>{{ process.memory_percent|floatformat:1 }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let systemChart;
+
+function updateCharts() {
+    fetch('/api/metrics/?hours=1')
+        .then(response => response.json())
+        .then(data => {
+            if (systemChart) {
+                systemChart.destroy();
+            }
+            
+            const ctx = document.getElementById('systemChart').getContext('2d');
+            systemChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.timestamps.map(t => new Date(t).toLocaleTimeString()),
+                    datasets: [{
+                        label: 'CPU %',
+                        data: data.cpu,
+                        borderColor: '#3498db',
+                        fill: false
+                    }, {
+                        label: 'Memory %',
+                        data: data.memory,
+                        borderColor: '#f39c12',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        });
+}
+
+updateCharts();
+setInterval(updateCharts, 30000); // Update every 30 seconds
+</script>
+{% endblock %}
